@@ -44,7 +44,7 @@ def _build_schema_definition_string(
     """Return the code for a given ``Schema`` as a string."""
     lines = f"class {class_name}(Schema):\n"
     if include_documentation:
-        lines += '    """Add documentation here."""\n\n'
+        lines += '    """TEGSEGG"""\n\n'
 
     for k, val in get_type_hints(schema).items():
         typehint = (
@@ -58,8 +58,9 @@ def _build_schema_definition_string(
         typehint = _replace_literals(
             typehint, replace_literals_in=DayTimeIntervalType, replace_literals_by=IntervalType
         )
+        print(k, val)
         if include_documentation:
-            lines += f'    {k}: Annotated[{typehint}, ColumnMeta(comment="")]\n'
+            lines += f'    {k}: Annotated[{typehint}, ColumnMeta(comment="LALALLA")]\n'
         else:
             lines += f"    {k}: {typehint}\n"
 

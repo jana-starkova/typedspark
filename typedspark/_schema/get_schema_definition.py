@@ -2,11 +2,9 @@
 ``DataFrame``."""
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING, Type, get_args, get_origin, get_type_hints
 
-from typedspark._core.datatypes import DayTimeIntervalType, StructType, TypedSparkDataType
-from typedspark._core.literaltype import IntervalType, LiteralType
+from typedspark._core.datatypes import StructType
 from typedspark._schema.get_schema_imports import get_schema_imports
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -43,8 +41,12 @@ def _build_schema_definition_string(
 ) -> str:
     """Return the code for a given ``Schema`` as a string."""
     lines = f"class {class_name}(Schema):\n"
+    
     if include_documentation:
-        lines += '    """TEGSEGG"""\n\n'
+        if schema.get_docstring() is not None:
+            lines += f'    """{schema.get_docstring()}"""\n\n'
+        else:
+            lines += '    """Add documentation here."""\n\n'
 
     for k, val in get_type_hints(schema).items():
         typehint = (
@@ -55,12 +57,11 @@ def _build_schema_definition_string(
             .replace("pyspark.sql.types.", "")
             .replace("typing.", "")
         )
-        typehint = _replace_literals(
-            typehint, replace_literals_in=DayTimeIntervalType, replace_literals_by=IntervalType
-        )
-        print(k, val)
         if include_documentation:
-            lines += f'    {k}: Annotated[{typehint}, ColumnMeta(comment="LALALLA")]\n'
+            if schema.__annotations__[k].__metadata__ is not None:
+                lines += f'    {k}: Annotated[{typehint}, ColumnMeta(comment="{schema.__annotations__[k].__metadata__[0]}")]\n'
+            else:
+                lines += f'    {k}: Annotated[{typehint}, ColumnMeta(comment="")]\n'
         else:
             lines += f"    {k}: {typehint}\n"
 
@@ -68,41 +69,6 @@ def _build_schema_definition_string(
         lines += _add_subschemas(schema, add_subschemas, include_documentation)
 
     return lines
-
-
-def _replace_literals(
-    typehint: str,
-    replace_literals_in: Type[TypedSparkDataType],
-    replace_literals_by: Type[LiteralType],
-) -> str:
-    """Replace all Literals in a LiteralType, e.g.
-
-    "DayTimeIntervalType[Literal[0], Literal[1]]" ->
-    "DayTimeIntervalType[IntervalType.DAY, IntervalType.HOUR]"
-    """
-    mapping = replace_literals_by.get_inverse_dict()
-    for original, replacement in mapping.items():
-        typehint = _replace_literal(typehint, replace_literals_in, original, replacement)
-
-    return typehint
-
-
-def _replace_literal(
-    typehint: str,
-    replace_literals_in: Type[TypedSparkDataType],
-    original: str,
-    replacement: str,
-) -> str:
-    """Replaces a single Literal in a LiteralType, e.g.
-
-    "DayTimeIntervalType[Literal[0], Literal[1]]" ->
-    "DayTimeIntervalType[IntervalType.DAY, Literal[1]]"
-    """
-    return re.sub(
-        rf"{replace_literals_in.get_name()}\[[^]]*\]",
-        lambda x: x.group(0).replace(original, replacement),
-        typehint,
-    )
 
 
 def _add_subschemas(schema: Type[Schema], add_subschemas: bool, include_documentation: bool) -> str:
